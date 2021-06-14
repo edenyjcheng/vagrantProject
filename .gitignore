@@ -56,5 +56,6 @@ build-iPhoneSimulator/
 # .rubocop-https?--*
 
 .vagrant
-
+/data
 **/.vagrant
+**/data
