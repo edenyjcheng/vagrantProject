@@ -22,7 +22,7 @@ SCRIPT
 
 
 BOX_NAME = "roboxes/ubuntu2010"
-MEMORY = "512"
+MEMORY = "1024"
 CPUS = 2
 MANAGERS = 1
 MANAGER_IP = "172.17.149.1"
@@ -41,14 +41,19 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       # smb_username: "aaaaaaa", 
       # smb_password: "xxxxxxx"
     config.vm.provision "shell",inline: $install_docker_script, privileged: true
+    config.vm.boot_timeout = 600
     # config.vm.provider "hyperv" do |vb|
     config.vm.provider "virtualbox" do |vb|
         vb.memory = MEMORY
         vb.cpus = CPUS
+        vb.customize [
+            "modifyvm", :id, 
+              " - paravirtprovider", "hyperv"
+        ]
         # Enable Nifty Hyper-V Features
         # allow nested virtualization within the VM
         # vb.enable_virtualization_extensions = true
-        vb.linked_clone = true
+        # vb.linked_clone = true
     end
     
     if Vagrant.has_plugin?("vagrant-timezone")
