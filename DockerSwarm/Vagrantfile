@@ -18,10 +18,25 @@ echo "Deploying Portainer ..."
 cd /vagrant
 curl -L https://downloads.portainer.io/portainer-agent-stack.yml -o portainer-agent-stack.yml
 docker stack deploy --compose-file=portainer-agent-stack.yml portainer
+
+echo "Add label..."
+docker node update --label-add registry=true manager01
+
+echo "Create Services ..."
+docker service create \
+  --name registry \
+  --constraint 'node.labels.registry==true' \
+  --mount type=bind,src=/vagrant/registry,dst=/var/lib/registry \
+  --publish published=5000,target=5000 \
+  --replicas 1 \
+  registry:latest
+  
+  docker service create --name my_nginx --replicas 3 --publish published=8080,target=80 nginx  
 SCRIPT
 
 
-BOX_NAME = "roboxes/ubuntu2010"
+BOX_NAME = "hashicorp/bionic64"
+BOX_VERSION = "1.0.282"
 MEMORY = "1024"
 CPUS = 2
 MANAGERS = 1
@@ -34,6 +49,7 @@ VAGRANTFILE_API_VERSION = "2"
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     #Common setup
     config.vm.box = BOX_NAME
+    config.vm.box_version = BOX_VERSION
     # config.vm.synced_folder ".", "/vagrant", disabled: true    
     config.vm.synced_folder "./data", "/vagrant", 
       create: true #, 
