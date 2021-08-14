@@ -44,16 +44,14 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     config.vm.boot_timeout = 600
     # config.vm.provider "hyperv" do |vb|
     config.vm.provider "virtualbox" do |vb|
+        vb.gui = true
         vb.memory = MEMORY
         vb.cpus = CPUS
-        vb.customize [
-            "modifyvm", :id, 
-              " - paravirtprovider", "hyperv"
-        ]
+        vb.customize [ "modifyvm", :id, "--paravirtprovider", "hyperv" ]
         # Enable Nifty Hyper-V Features
         # allow nested virtualization within the VM
         # vb.enable_virtualization_extensions = true
-        # vb.linked_clone = true
+        vb.linked_clone = true
     end
     
     if Vagrant.has_plugin?("vagrant-timezone")
