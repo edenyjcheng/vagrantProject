@@ -1,0 +1,46 @@
+version: '3.1'
+
+services:
+  registry-server:
+    restart: always
+    image: registry:latest
+    ports:
+      - 5000:5000
+    deploy:
+      placement:
+        constraints:
+          - node.labels.registry==true
+      replicas: 1
+      update_config:
+        parallelism: 2
+        delay: 10s   
+    # environment:
+      # REGISTRY_HTTP_TLS_CERTIFICATE: /certs/domain.crt
+      # REGISTRY_HTTP_TLS_KEY: /certs/domain.key
+      # REGISTRY_AUTH: htpasswd
+      # REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      # REGISTRY_AUTH_HTPASSWD_REALM: Registry Realm
+    volumes:
+      - /vagrant/registry/data:/var/lib/registry
+      # - /vagrant/registry/certs:/certs
+      # - /vagrant/registry/auth:/auth
+  
+  registry-ui:
+    image: jc21/registry-ui
+    ports:
+      - 5080:80
+    depends_on:
+      - registry-server
+    deploy:
+      placement:
+        constraints:
+          - node.labels.registry==true
+      replicas: 2
+      update_config:
+        parallelism: 2
+        delay: 10s
+    environment:
+      - REGISTRY_HOST=registry-server:5000
+      # - REGISTRY_SSL=true
+      # - REGISTRY_DOMAIN=your-registry-server.com:5000
+      - REGISTRY_STORAGE_DELETE_ENABLED=true

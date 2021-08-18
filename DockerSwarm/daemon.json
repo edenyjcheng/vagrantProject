@@ -1,0 +1,23 @@
+{
+    "registry-mirrors": [
+        "http://172.17.149.11:5000"
+    ],
+    "insecure-registries": [
+        "172.17.149.11:5000"
+    ],
+    "debug": false,
+    "experimental": false,
+    "features": {
+        "buildkit": true
+    },
+    "builder": {
+        "gc": {
+            "enabled": true,
+            "defaultKeepStorage": "20GB"
+        }
+    },
+    "dns": [
+        "8.8.8.8",
+        "8.8.4.4"
+    ]
+}

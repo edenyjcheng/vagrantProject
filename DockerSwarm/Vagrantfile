@@ -1,38 +1,31 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
-$install_docker_script = <<SCRIPT
-echo "Installing dependencies ..."
-sudo apt-get update
-echo Installing Docker...
-curl -sSL https://get.docker.com/ | sh
-sudo usermod -aG docker vagrant
-SCRIPT
+
+# $install_docker_script = <<SCRIPT
+# echo "Installing dependencies ..."
+# sudo apt-get update
+# echo Installing Docker...
+# curl -sSL https://get.docker.com/ | sh
+# sudo usermod -aG docker vagrant
+# SCRIPT
 
 $docker_swarm_init_script = <<SCRIPT
 echo "Initiating Docker Swarm ..."
 docker swarm init --advertise-addr 172.17.149.11 --listen-addr 172.17.149.11:2377
+echo "Generating swarm token for worker"
 docker swarm join-token --quiet worker > /vagrant/worker_token
+echo "Generating swarm token for manager"
 docker swarm join-token --quiet manager > /vagrant/manager_token
-
 echo "Deploying Portainer ..."
 cd /vagrant
 curl -L https://downloads.portainer.io/portainer-agent-stack.yml -o portainer-agent-stack.yml
 docker stack deploy --compose-file=portainer-agent-stack.yml portainer
-
-echo "Add label..."
+echo "Deploying Docker Registry ..."
 docker node update --label-add registry=true manager01
-
-echo "Create Services ..."
-docker service create \
-  --name registry \
-  --constraint 'node.labels.registry==true' \
-  --mount type=bind,src=/vagrant/registry,dst=/var/lib/registry \
-  --publish published=5000,target=5000 \
-  --replicas 1 \
-  registry:latest
-  
-  docker service create --name my_nginx --replicas 3 --publish published=8080,target=80 nginx  
+docker stack deploy --compose-file=docker-registry-stack.yml registry
 SCRIPT
+
+#   docker service create --name my_nginx --replicas 3 --publish published=8080,target=80 nginx  
 
 
 BOX_NAME = "hashicorp/bionic64"
@@ -56,8 +49,14 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       # smb_host: "192.168.86.113", 
       # smb_username: "aaaaaaa", 
       # smb_password: "xxxxxxx"
-    config.vm.provision "shell",inline: $install_docker_script, privileged: true
-    config.vm.boot_timeout = 600
+    
+    # config.vm.provision "shell",inline: $install_docker_script, privileged: true
+    config.vm.provision "docker" 
+    config.vm.provision :shell, 
+                        inline: "sudo cp -v /vagrant/daemon.json /etc/docker \
+                                && sudo systemctl daemon-reload \
+                                && sudo systemctl restart docker"
+    # config.vm.boot_timeout = 600
     # config.vm.provider "hyperv" do |vb|
     config.vm.provider "virtualbox" do |vb|
         vb.gui = true
@@ -67,12 +66,31 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         # Enable Nifty Hyper-V Features
         # allow nested virtualization within the VM
         # vb.enable_virtualization_extensions = true
-        vb.linked_clone = true
+        # vb.linked_clone = true
     end
     
+    config.vm.provider :hyperv do |hv|
+        # hv.vmname = machine_name
+        hv.cpus = 1
+        hv.memory =  2048
+        hv.enable_virtualization_extensions = true
+        hv.ip_address_timeout = 240
+        hv.vm_integration_services = {
+         guest_service_interface: true,
+         heartbeat: true,
+         key_value_pair_exchange: true,
+         shutdown: true,
+         time_synchronization: true,
+         vss: true
+        }
+    end
+
+
     if Vagrant.has_plugin?("vagrant-timezone")
         config.timezone.value = "America/New_York"
     end
+
+    
 
     #Setup Manager Nodes
     (1..MANAGERS).each do |i|
@@ -84,8 +102,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
                 manager.vm.provision "shell",inline: $docker_swarm_init_script
 
                 #Only configure port to host for Manager01
-                manager.vm.network :forwarded_port, guest: 8080, host: 8080
+                # manager.vm.network :forwarded_port, guest: 8080, host: 8080
                 manager.vm.network :forwarded_port, guest: 5000, host: 5000
+                manager.vm.network :forwarded_port, guest: 5080, host: 5080
                 manager.vm.network :forwarded_port, guest: 9000, host: 9000
             else
                 manager.vm.provision "shell",inline: "docker swarm join --token $(cat /vagrant/manager_token) #{MANAGER_IP}1"  
